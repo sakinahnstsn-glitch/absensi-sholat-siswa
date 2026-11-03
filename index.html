@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Absensi Shalat Siswa</title>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #e0f2fe, #dcfce7);
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 560px;
+      margin: 20px auto;
+      background: white;
+      padding: 24px;
+      border-radius: 20px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.10);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header .symbol {
+      font-size: 45px;
+    }
+
+    h1 {
+      color: #047857;
+      font-size: 24px;
+      margin: 8px 0;
+    }
+
+    .subtitle {
+      color: #64748b;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      margin: 15px 0 7px;
+      font-weight: bold;
+    }
+
+    select, input {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 16px;
+      background: white;
+    }
+
+    button {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .start {
+      background: #059669;
+      color: white;
+    }
+
+    .stop {
+      background: #e2e8f0;
+      color: #334155;
+    }
+
+    #reader {
+      width: 100%;
+      margin-top: 18px;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    #status {
+      margin-top: 18px;
+      padding: 15px;
+      border-radius: 12px;
+      background: #f1f5f9;
+      line-height: 1.6;
+      min-height: 55px;
+      overflow-wrap: anywhere;
+    }
+
+    .success {
+      background: #dcfce7 !important;
+      color: #166534;
+    }
+
+    .error {
+      background: #fee2e2 !important;
+      color: #991b1b;
+    }
+
+    .warning {
+      background: #fef3c7 !important;
+      color: #92400e;
+    }
+
+    .note {
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+      margin-top: 18px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="header">
+    <div class="symbol">🕌</div>
+    <h1>ABSENSI SHALAT SISWA</h1>
+    <div class="subtitle">
+      SMA NEGERI 1 SIMPANG EMPAT<br>
+      KABUPATEN KARO
+    </div>
+  </div>
+
+  <label for="prayer">Pilih Jenis Salat</label>
+
+  <select id="prayer">
+    <option value="Zuhur">Salat Zuhur</option>
+    <option value="Jumat">Salat Jumat</option>
+  </select>
+
+  <label for="pin">PIN Petugas</label>
+
+  <input
+    type="password"
+    id="pin"
+    placeholder="Masukkan PIN petugas"
+    autocomplete="off"
+  >
+
+  <button class="start" onclick="startScanner()">
+    📷 MULAI SCAN QR
+  </button>
+
+  <button class="stop" onclick="stopScanner()">
+    HENTIKAN KAMERA
+  </button>
+
+  <div id="reader"></div>
+
+  <div id="status">
+    Silakan masukkan PIN petugas, pilih jenis salat,
+    kemudian tekan Mulai Scan QR.
+  </div>
+
+  <div class="note">
+    Pastikan QR Code pada kartu siswa terlihat jelas
+    dan kamera laptop mendapatkan pencahayaan cukup.
+  </div>
+
+</div>
+
+
+<script>
+  // GANTI dengan URL Web App Apps Script milik Anda.
+  const SCRIPT_URL =
+    "https://script.google.com/macros/s/AKfycbwvHjNVywdBODX--y3CJzn358BK4D9eYdjG1pAEkWfz9bvD8e_MNzgVIDCoZXOcYiXa/exec";
+
+  let scanner = null;
+  let scanning = false;
+  let processing = false;
+  let callbackCounter = 0;
+
+
+  function showStatus(message, type) {
+    const box = document.getElementById("status");
+
+    box.className = type || "";
+    box.innerHTML = message;
+  }
+
+
+  async function startScanner() {
+    if (scanning) return;
+
+    if (
+      !SCRIPT_URL.startsWith("https://script.google.com/")
+    ) {
+      showStatus(
+        "URL Apps Script belum dipasang pada kode.",
+        "error"
+      );
+      return;
+    }
+
+    const pin = document.getElementById("pin").value.trim();
+
+    if (!pin) {
+      showStatus("Masukkan PIN petugas terlebih dahulu.", "warning");
+      return;
+    }
+
+    if (!window.Html5Qrcode) {
+      showStatus(
+        "Library pemindai tidak berhasil dimuat. Periksa koneksi internet.",
+        "error"
+      );
+      return;
+    }
+
+    scanner = new Html5Qrcode("reader");
+
+    try {
+      scanning = true;
+
+      showStatus("Mengaktifkan kamera laptop...", "warning");
+
+      await scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        onScanSuccess,
+        function () {}
+      );
+
+      showStatus(
+        "Kamera aktif. Arahkan QR Code kartu siswa ke kamera.",
+        "success"
+      );
+
+    } catch (error) {
+      scanning = false;
+
+      showStatus(
+        "Kamera gagal dibuka: " +
+        (error.message || error),
+        "error"
+      );
+    }
+  }
+
+
+  function onScanSuccess(decodedText) {
+    if (processing) return;
+
+    processing = true;
+
+    const nis = String(decodedText).trim();
+    const prayer = document.getElementById("prayer").value;
+    const pin = document.getElementById("pin").value.trim();
+
+    showStatus(
+      "QR terbaca. Memeriksa data siswa...",
+      "warning"
+    );
+
+    sendToSpreadsheet(nis, prayer, pin);
+  }
+
+
+  function sendToSpreadsheet(nis, prayer, pin) {
+    callbackCounter++;
+
+    const callbackName =
+      "absensiCallback" + Date.now() + callbackCounter;
+
+    const params = new URLSearchParams({
+      action: "scan",
+      nis: nis,
+      prayer: prayer,
+      pin: pin,
+      callback: callbackName,
+      t: Date.now().toString()
+    });
+
+    const script = document.createElement("script");
+
+    let finished = false;
+
+    const timeout = setTimeout(function() {
+      finish();
+
+      showStatus(
+        "Tidak ada respons dari server. Periksa koneksi internet dan URL Apps Script.",
+        "error"
+      );
+    }, 15000);
+
+
+    function finish() {
+      if (finished) return;
+
+      finished = true;
+      clearTimeout(timeout);
+
+      delete window[callbackName];
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+
+      processing = false;
+    }
+
+
+    window[callbackName] = function(result) {
+      finish();
+
+      if (result.success) {
+        showStatus(
+          "<strong>✓ ABSENSI BERHASIL</strong><br>" +
+          "Nama: " + escapeHtml(result.nama) + "<br>" +
+          "NIS: " + escapeHtml(result.nis) + "<br>" +
+          "Kelas: " + escapeHtml(result.kelas) + "<br>" +
+          "Salat: " + escapeHtml(result.prayer) + "<br>" +
+          "Tanggal: " + escapeHtml(result.tanggal) + "<br>" +
+          "Jam: " + escapeHtml(result.jam),
+          "success"
+        );
+
+      } else if (result.duplicate) {
+        showStatus(
+          "<strong>⚠ ABSENSI SUDAH ADA</strong><br>" +
+          escapeHtml(result.message),
+          "warning"
+        );
+
+      } else {
+        showStatus(
+          "<strong>ABSENSI GAGAL</strong><br>" +
+          escapeHtml(result.message),
+          "error"
+        );
+      }
+    };
+
+
+    script.onerror = function() {
+      finish();
+
+      showStatus(
+        "Gagal menghubungi Apps Script. Periksa URL dan koneksi internet.",
+        "error"
+      );
+    };
+
+
+    script.src = SCRIPT_URL + "?" + params.toString();
+
+    document.body.appendChild(script);
+  }
+
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, function(char) {
+      return {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[char];
+    });
+  }
+
+
+  async function stopScanner() {
+    if (!scanner || !scanning) return;
+
+    try {
+      await scanner.stop();
+      await scanner.clear();
+
+      scanning = false;
+      processing = false;
+
+      showStatus("Kamera sudah dihentikan.", "");
+
+    } catch (error) {
+      scanning = false;
+      processing = false;
+
+      showStatus(
+        "Kamera dihentikan. " + (error.message || error),
+        ""
+      );
+    }
+  }
+
+</script>
+
+</body>
+</html>
